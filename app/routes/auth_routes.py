@@ -1,6 +1,6 @@
 import jwt
 from flask import Blueprint, request, jsonify
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime, timedelta
 import os
 from app import db
@@ -57,3 +57,28 @@ def login():
             "valid_until": user['account_valid_until'].isoformat() if user.get('account_valid_until') else None
         }
     }), 200
+
+
+@auth_bp.route('/api/auth/change-password', methods=['POST'])
+def change_password():
+    data = request.get_json()
+    username = data.get('username')
+    current_password = data.get('currentPassword')
+    new_password = data.get('newPassword')
+
+    if not username or not current_password or not new_password:
+        return jsonify({"error": "සියලුම තොරතුරු ඇතුලත් කරන්න"}), 400
+
+    # යූසර්ව හොයාගෙන පරණ පාස්වර්ඩ් එක හරියටම ගැලපෙනවද බලනවා
+    user = db.users.find_one({"username": username})
+    if not user or not check_password_hash(user['password'], current_password):
+        return jsonify({"error": "දැනට ඇති මුරපදය වැරදියි"}), 401
+
+    # අලුත් පාස්වර්ඩ් එක Hash කරලා සේව් කරනවා
+    hashed_password = generate_password_hash(new_password)
+    db.users.update_one(
+        {"_id": user['_id']},
+        {"$set": {"password": hashed_password}}
+    )
+
+    return jsonify({"message": "මුරපදය සාර්ථකව යාවත්කාලීන කරන ලදී!"}), 200
