@@ -102,3 +102,46 @@ def reset_password(user_id):
         {"$set": {"password": hashed_password}}
     )
     return jsonify({"message": "මුරපදය සාර්ථකව වෙනස් කරන ලදී!"}), 200
+
+
+# ==========================================
+# 4. App Settings (Notifications & Dropdowns) ලබා ගැනීම
+# ==========================================
+@admin_bp.route('/api/admin/settings', methods=['GET'])
+def get_settings():
+    # Database එකෙන් සැකසුම් ලබා ගැනීම
+    settings = db.app_settings.find_one({})
+    
+    # සැකසුම් කිසිවක් නැත්නම්, මූලික දත්ත (Default data) සාදා Save කිරීම
+    if not settings:
+        settings = {
+            "global_notice": "",
+            "units": ["kg", "g", "ml", "l", "packet", "box", "bottle"],
+            "expense_categories": ["fuel", "food", "vehicle", "other_expense"],
+            "income_categories": ["tip", "found_money", "advance"]
+        }
+        db.app_settings.insert_one(settings)
+    
+    # _id එක string එකක් බවට පත් කර යැවීම
+    settings['_id'] = str(settings.get('_id', ''))
+    return jsonify(settings), 200
+
+# ==========================================
+# 5. App Settings (Notifications & Dropdowns) යාවත්කාලීන කිරීම
+# ==========================================
+@admin_bp.route('/api/admin/settings', methods=['PUT'])
+def update_settings():
+    data = request.get_json()
+    
+    try:
+        # ඇති එකම Document එක යාවත්කාලීන කිරීම (upsert=True මගින් නැත්නම් අලුතින් සාදයි)
+        db.app_settings.update_one({}, {"$set": {
+            "global_notice": data.get('global_notice', ''),
+            "units": data.get('units', []),
+            "expense_categories": data.get('expense_categories', []),
+            "income_categories": data.get('income_categories', [])
+        }}, upsert=True)
+        
+        return jsonify({"message": "සැකසුම් සාර්ථකව යාවත්කාලීන කරන ලදී!"}), 200
+    except Exception as e:
+        return jsonify({"error": "සැකසුම් සුරැකීමේදී දෝෂයක් මතු විය."}), 500
