@@ -68,6 +68,38 @@ def get_initial_data():
         bill_items = list(db.billItems.find({"username": username}, {'_id': 0}))
         expenses = list(db.expenses.find({"username": username}, {'_id': 0}))
 
+        # --- අලුතින් එක්කළ කොටස: App Settings ලබා ගැනීම ---
+        app_settings = db.app_settings.find_one({}, {'_id': 0})
+        if not app_settings:
+            app_settings = {
+                "global_notice": "",
+                "units": ["kg", "g", "ml", "l", "packet", "box", "bottle"],
+                "expense_categories": ["fuel", "food", "vehicle", "other_expense"],
+                "income_categories": ["tip", "found_money", "advance"]
+            }
+        # ------------------------------------------------
+
+        # සර්වර් එකේ තියෙන 'local_id' එක React එකට තේරෙන විදිහට ආපසු 'id' බවට පත් කිරීම
+        def format_for_frontend(data_list):
+            for item in data_list:
+                item.pop('username', None)
+                item.pop('synced_at', None)
+                if 'local_id' in item:
+                    item['id'] = item.pop('local_id')
+            return data_list
+
+        return jsonify({
+            "settings": format_for_frontend(settings),
+            "profile": format_for_frontend(profile),
+            "routes": format_for_frontend(routes),
+            "shops": format_for_frontend(shops),
+            "items": format_for_frontend(items),
+            "bills": format_for_frontend(bills),
+            "billItems": format_for_frontend(bill_items),
+            "expenses": format_for_frontend(expenses),
+            "appSettings": app_settings # <--- අලුතින් එක් කළ පේළිය
+        }), 200
+
         # සර්වර් එකේ තියෙන 'local_id' එක React එකට තේරෙන විදිහට ආපසු 'id' බවට පත් කිරීම
         def format_for_frontend(data_list):
             for item in data_list:
