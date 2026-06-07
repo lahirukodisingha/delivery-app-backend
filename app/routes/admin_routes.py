@@ -20,8 +20,8 @@ def register_driver():
     if db.users.find_one({"username": username}):
         return jsonify({"error": "මෙම නමින් දැනටමත් ගිණුමක් ඇත"}), 400
         
-    # 3. අවුරුද්දකින් (දවස් 365) කල් ඉකුත් වෙන දවස හදනවා
-    valid_until = datetime.now() + timedelta(days=365)
+    # 3. මාසයකින් (දවස් 30) කල් ඉකුත් වෙන දවස හදනවා
+    valid_until = datetime.now() + timedelta(days=30)
     
     # 4. අලුත් ඩ්‍රයිවර්ගේ විස්තර ටික ලෑස්ති කරනවා (පාස්වර්ඩ් එක Hash කරලා සේව් කරන්නේ ආරක්ෂාවට)
     new_driver = {
