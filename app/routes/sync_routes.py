@@ -72,7 +72,7 @@ def get_initial_data():
         app_settings = db.app_settings.find_one({}, {'_id': 0})
         if not app_settings:
             app_settings = {
-                "global_notice": "",
+                "notifications": [], # වෙනස් කළ කොටස
                 "units": ["kg", "g", "ml", "l", "packet", "box", "bottle"],
                 "expense_categories": ["fuel", "food", "vehicle", "other_expense"],
                 "income_categories": ["tip", "found_money", "advance"]
