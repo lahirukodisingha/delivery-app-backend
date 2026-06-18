@@ -99,3 +99,32 @@ def get_initial_data():
         
     except Exception as e:
         return jsonify({"error": f"දත්ත ලබාගැනීමේ දෝෂයකි: {str(e)}"}), 500
+    
+
+# ==========================================
+# ඩ්‍රයිවර් කියවූ පණිවිඩ (Read Notifications) කෙලින්ම සේව් කිරීම සහ ලබාගැනීම
+# ==========================================
+@sync_bp.route('/api/sync/user-notifs', methods=['GET', 'POST'])
+def handle_user_notifs():
+    if request.method == 'GET':
+        username = request.args.get('username')
+        user = db.users.find_one({"username": username})
+        read_notifs = user.get("read_notifications", []) if user else []
+        return jsonify({"readNotifs": read_notifs}), 200
+        
+    if request.method == 'POST':
+        data = request.get_json()
+        username = data.get('username')
+        notif_ids = data.get('notif_ids', [])
+        
+        # තනි ID එකක් ආවොත් ඒක Array එකක් බවට පත් කිරීම
+        if isinstance(notif_ids, str):
+            notif_ids = [notif_ids]
+            
+        if username and notif_ids:
+            # $addToSet සහ $each මගින් අලුත් ID පමණක් duplicate නොවි එකතු කරයි
+            db.users.update_one(
+                {"username": username}, 
+                {"$addToSet": {"read_notifications": {"$each": notif_ids}}}
+            )
+        return jsonify({"success": True}), 200
