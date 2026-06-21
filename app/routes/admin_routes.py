@@ -3,30 +3,32 @@ from werkzeug.security import generate_password_hash
 from datetime import datetime, timedelta
 from app import db
 from bson.objectid import ObjectId
-from datetime import datetime
 
 admin_bp = Blueprint('admin', __name__)
 
+# ==========================================
+# 1. නව රියදුරු ගිණුමක් සෑදීම
+# ==========================================
 @admin_bp.route('/api/admin/register-driver', methods=['POST'])
 def register_driver():
     data = request.get_json()
     
     username = data.get('username')
     password = data.get('password')
+    first_name = data.get('first_name', '') # අලුතින් එක්කළ කොටස
+    last_name = data.get('last_name', '')   # අලුතින් එක්කළ කොටස
     
-    # 1. යූසර් නමයි පාස්වර්ඩ් එකයි එවලා තියෙනවද කියලා බලනවා
     if not username or not password:
         return jsonify({"error": "පරිශීලක නාමය සහ මුරපදය අනිවාර්යයි"}), 400
         
-    # 2. මේ නමින් කලින් කෙනෙක් ඉන්නවද බලනවා
     if db.users.find_one({"username": username}):
         return jsonify({"error": "මෙම නමින් දැනටමත් ගිණුමක් ඇත"}), 400
         
-    # 3. මාසයකින් (දවස් 30) කල් ඉකුත් වෙන දවස හදනවා
     valid_until = datetime.now() + timedelta(days=30)
     
-    # 4. අලුත් ඩ්‍රයිවර්ගේ විස්තර ටික ලෑස්ති කරනවා (පාස්වර්ඩ් එක Hash කරලා සේව් කරන්නේ ආරක්ෂාවට)
     new_driver = {
+        "first_name": first_name, # අලුතින් එක්කළ කොටස
+        "last_name": last_name,   # අලුතින් එක්කළ කොටස
         "username": username,
         "password": generate_password_hash(password),
         "role": "driver",
@@ -36,7 +38,6 @@ def register_driver():
         "last_login_date": None
     }
     
-    # 5. Database එකට සේව් කරනවා
     db.users.insert_one(new_driver)
     
     return jsonify({
@@ -46,15 +47,11 @@ def register_driver():
     }), 201
 
 
-from bson.objectid import ObjectId
-from datetime import datetime
-
 # ==========================================
-# 1. සියලුම රියදුරන්ගේ දත්ත ලබා ගැනීම
+# 2. සියලුම රියදුරන්ගේ දත්ත ලබා ගැනීම
 # ==========================================
 @admin_bp.route('/api/admin/drivers', methods=['GET'])
 def get_drivers():
-    # 'driver' role එක තියෙන අය පමණක් ලබාගනී (පාස්වර්ඩ් එක යවන්නේ නැත)
     drivers = list(db.users.find({"role": "driver"}, {"password": 0}))
     for driver in drivers:
         driver['_id'] = str(driver['_id'])
@@ -68,7 +65,7 @@ def get_drivers():
     return jsonify(drivers), 200
 
 # ==========================================
-# 2. රියදුරෙකුගේ ගිණුමේ වලංගු කාලය වෙනස් කිරීම
+# 3. රියදුරෙකුගේ ගිණුමේ වලංගු කාලය වෙනස් කිරීම
 # ==========================================
 @admin_bp.route('/api/admin/drivers/<user_id>/validity', methods=['PUT'])
 def update_validity(user_id):
@@ -76,7 +73,6 @@ def update_validity(user_id):
     new_date_str = data.get('valid_until')
     try:
         new_date = datetime.strptime(new_date_str, '%Y-%m-%d')
-        # දිනය අප්ඩේට් කරනවා වගේම ගිණුම නැවත Active කරනවා
         db.users.update_one(
             {"_id": ObjectId(user_id)}, 
             {"$set": {"account_valid_until": new_date, "is_active": True}}
@@ -86,7 +82,7 @@ def update_validity(user_id):
         return jsonify({"error": "දිනය වෙනස් කිරීමේ දෝෂයකි."}), 400
 
 # ==========================================
-# 3. රියදුරෙකුගේ පාස්වර්ඩ් එක අලුතින් සැකසීම
+# 4. රියදුරෙකුගේ පාස්වර්ඩ් එක අලුතින් සැකසීම
 # ==========================================
 @admin_bp.route('/api/admin/drivers/<user_id>/reset-password', methods=['PUT'])
 def reset_password(user_id):
@@ -103,17 +99,43 @@ def reset_password(user_id):
     )
     return jsonify({"message": "මුරපදය සාර්ථකව වෙනස් කරන ලදී!"}), 200
 
+# ==========================================
+# 5. රියදුරෙකුගේ නම වෙනස් කිරීම (අලුත් API එක)
+# ==========================================
+@admin_bp.route('/api/admin/drivers/<user_id>/name', methods=['PUT'])
+def update_name(user_id):
+    data = request.get_json()
+    first_name = data.get('first_name', '')
+    last_name = data.get('last_name', '')
+    try:
+        db.users.update_one(
+            {"_id": ObjectId(user_id)}, 
+            {"$set": {"first_name": first_name, "last_name": last_name}}
+        )
+        return jsonify({"message": "නම සාර්ථකව යාවත්කාලීන කරන ලදී!"}), 200
+    except Exception as e:
+        return jsonify({"error": "නම වෙනස් කිරීමේ දෝෂයකි."}), 400
 
 # ==========================================
-# 4. App Settings (Notifications & Dropdowns) ලබා ගැනීම
+# 6. ගිණුමක් මකා දැමීම (Delete - අලුත් API එක)
+# ==========================================
+@admin_bp.route('/api/admin/drivers/<user_id>', methods=['DELETE'])
+def delete_driver(user_id):
+    try:
+        db.users.delete_one({"_id": ObjectId(user_id)})
+        return jsonify({"message": "ගිණුම සාර්ථකව මකා දමන ලදී!"}), 200
+    except Exception as e:
+        return jsonify({"error": "ගිණුම මකා දැමීමේ දෝෂයකි."}), 400
+
+# ==========================================
+# 7. App Settings (Notifications & Dropdowns) ලබා ගැනීම
 # ==========================================
 @admin_bp.route('/api/admin/settings', methods=['GET'])
 def get_settings():
     settings = db.app_settings.find_one({})
-    
     if not settings:
         settings = {
-            "notifications": [], # වෙනස් කළ කොටස
+            "notifications": [], 
             "units": ["kg", "g", "ml", "l", "packet", "box", "bottle"],
             "expense_categories": ["fuel", "food", "vehicle", "other_expense"],
             "income_categories": ["tip", "found_money", "advance"]
@@ -124,14 +146,14 @@ def get_settings():
     return jsonify(settings), 200
 
 # ==========================================
-# 5. App Settings (Notifications & Dropdowns) යාවත්කාලීන කිරීම
+# 8. App Settings යාවත්කාලීන කිරීම
 # ==========================================
 @admin_bp.route('/api/admin/settings', methods=['PUT'])
 def update_settings():
     data = request.get_json()
     try:
         db.app_settings.update_one({}, {"$set": {
-            "notifications": data.get('notifications', []), # වෙනස් කළ කොටස
+            "notifications": data.get('notifications', []), 
             "units": data.get('units', []),
             "expense_categories": data.get('expense_categories', []),
             "income_categories": data.get('income_categories', [])
