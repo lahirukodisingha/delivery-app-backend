@@ -54,7 +54,9 @@ def login():
             "username": user['username'],
             "role": user['role'],
             # %Y-%m-%d වෙනුවට isoformat() භාවිතා කර සම්පූර්ණ වේලාව යවන්න
-            "valid_until": user['account_valid_until'].isoformat() if user.get('account_valid_until') else None
+            "valid_until": user['account_valid_until'].isoformat() if user.get('account_valid_until') else None,
+
+            "created_at": user['created_at'].isoformat() if user.get('created_at') else None 
         }
     }), 200
 
